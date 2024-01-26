@@ -17,7 +17,7 @@ And combining the two, I hate having boilerplate like `config.param` all over my
 Pull this repo, and run `pip install .`
 
 ## Usage
-
+Setup an entrypoint with type hints and dataclasses.
 ```python
 # demo.py
 from dataclasses import dataclass
@@ -40,6 +40,13 @@ if __name__ == "__main__":
     train(**train_args)
 ```
 
+Call your script with nested properties using dot notation, or with predefined defaults.
+```sh
+➜ python demo.py --lr 0.01 --model.num_layers 5
+0.01
+5
+```
+
 Help functions work:
 ```sh
 ➜ python demo.py --help
@@ -54,10 +61,5 @@ options:
                         model.num_layers: <class 'int'>
 ```
 
-And you can define nested properties using dot notation.
-```sh
-➜ python demo.py --lr 0.01 --model.num_layers 5
-0.01
-5
-```
+
 
