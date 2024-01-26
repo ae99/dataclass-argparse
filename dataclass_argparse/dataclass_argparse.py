@@ -4,6 +4,18 @@ import inspect
 from typing import Any, Dict, Type
 
 
+def add_argument(parser, name, type, default=None, help=None):
+    if type is bool:
+        parser.add_argument(
+            f"--{name}", action="store_true", default=default, help=help
+        )
+        parser.add_argument(
+            f"--no-{name}", action="store_false", dest=name, help=argparse.SUPPRESS
+        )
+    else:
+        parser.add_argument(f"--{name}", type=type, default=default, help=help)
+
+
 def add_arguments_for_function(parser, func):
     sig = inspect.signature(func)
     for param_name, param in sig.parameters.items():
@@ -16,9 +28,10 @@ def add_arguments_for_function(parser, func):
                 parser, param_type, prefix=param_name, default=default
             )
         else:
-            parser.add_argument(
-                f"--{param_name}",
-                type=param_type,
+            add_argument(
+                parser,
+                param_name,
+                param_type,
                 default=default,
                 help=f"{param_name}: {param_type.__name__}",
             )
@@ -35,9 +48,10 @@ def add_arguments_for_dataclass(parser, cls, prefix="", default=None):
                     parser, field_type, prefix=full_name, default=default
                 )
             else:
-                parser.add_argument(
-                    f"--{full_name}",
-                    type=field_type,
+                add_argument(
+                    parser,
+                    full_name,
+                    field_type,
                     default=default,
                     help=f"{full_name}: {field_type.__name__}",
                 )
@@ -52,9 +66,10 @@ def add_arguments_for_dataclass(parser, cls, prefix="", default=None):
                     default=getattr(default, field_name),
                 )
             else:
-                parser.add_argument(
-                    f"--{full_name}",
-                    type=field_type.type,
+                add_argument(
+                    parser,
+                    full_name,
+                    field_type.type,
                     default=getattr(default, field_name),
                     help=f"{full_name}: {field_type.type.__name__}",
                 )
