@@ -100,39 +100,3 @@ class FunctionArgumentParser(argparse.ArgumentParser):
         args_dict = {k: v for k, v in vars(args).items() if v is not None}
         nested_args = nested_dict(args_dict)
         return construct_function_arguments(self.func, nested_args)
-
-
-def main():
-    parser = argparse.ArgumentParser(description="CLI for train function")
-    add_arguments_for_function(parser, train)
-    args = parser.parse_args()
-
-    # Convert argparse Namespace to dictionary, removing None values
-    args_dict = {k: v for k, v in vars(args).items() if v is not None}
-    nested_args = nested_dict(args_dict)
-
-    # Get the signature of the train function
-    sig = inspect.signature(train)
-    train_args = {}
-
-    for param_name, param in sig.parameters.items():
-        param_type = param.annotation
-        if dataclasses.is_dataclass(param_type):
-            # Construct data class from nested_args if available
-            if param_name in nested_args:
-                train_args[param_name] = construct_dataclass(
-                    param_type, nested_args[param_name]
-                )
-            else:
-                # Use default value if not provided in nested_args
-                train_args[param_name] = param.default
-        else:
-            # Use value directly for non-dataclass types
-            train_args[param_name] = nested_args.get(param_name, param.default)
-
-    # Call the train function with constructed arguments
-    train(**train_args)
-
-
-if __name__ == "__main__":
-    main()

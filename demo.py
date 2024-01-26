@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from main import FunctionArgumentParser
+from dataclass_argparse import FunctionArgumentParser
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import argparse
 from dataclasses import dataclass
 
-from main import (
+from dataclass_argparse import (
     add_arguments_for_dataclass,
     add_arguments_for_function,
     construct_dataclass,
