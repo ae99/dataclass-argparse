@@ -20,7 +20,7 @@ def add_arguments_for_function(parser, func):
                 f"--{param_name}",
                 type=param_type,
                 default=default,
-                help=f"{param_name}: {param_type}",
+                help=f"{param_name}: {param_type.__name__}",
             )
 
 
@@ -39,7 +39,7 @@ def add_arguments_for_dataclass(parser, cls, prefix="", default=None):
                     f"--{full_name}",
                     type=field_type,
                     default=default,
-                    help=f"{full_name}: {field_type}",
+                    help=f"{full_name}: {field_type.__name__}",
                 )
     else:
         for field_name, field_type in default.__dataclass_fields__.items():
@@ -56,7 +56,7 @@ def add_arguments_for_dataclass(parser, cls, prefix="", default=None):
                     f"--{full_name}",
                     type=field_type.type,
                     default=getattr(default, field_name),
-                    help=f"{full_name}: {field_type}",
+                    help=f"{full_name}: {field_type.type.__name__}",
                 )
 
 
