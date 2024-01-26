@@ -4,22 +4,6 @@ import inspect
 from typing import Any, Dict, Type
 
 
-@dataclasses.dataclass
-class CheckpointConfig:
-    interval: int = 1
-    upload: int = 2
-
-
-def train(
-    param_1: int = 1,
-    param_2: str = "default",
-    param_3: CheckpointConfig = CheckpointConfig(),
-):
-    print(
-        f"Training with param_1: {param_1.__repr__()}, param_2: {param_2.__repr__()}, param_3: {param_3}"
-    )
-
-
 def add_arguments_for_function(parser, func):
     sig = inspect.signature(func)
     for param_name, param in sig.parameters.items():
@@ -28,7 +12,9 @@ def add_arguments_for_function(parser, func):
             param.default if param.default is not inspect.Parameter.empty else None
         )
         if dataclasses.is_dataclass(param_type):
-            add_arguments_for_dataclass(parser, param_type, prefix=param_name)
+            add_arguments_for_dataclass(
+                parser, param_type, prefix=param_name, default=default
+            )
         else:
             parser.add_argument(
                 f"--{param_name}",
@@ -38,20 +24,40 @@ def add_arguments_for_function(parser, func):
             )
 
 
-def add_arguments_for_dataclass(parser, cls, prefix=""):
-    for field in dataclasses.fields(cls):
-        full_name = f"{prefix}.{field.name}" if prefix else field.name
-        field_type = field.type
-        default = field.default
-        if dataclasses.is_dataclass(field_type):
-            add_arguments_for_dataclass(parser, field_type, prefix=full_name)
-        else:
-            parser.add_argument(
-                f"--{full_name}",
-                type=field_type,
-                default=default,
-                help=f"{full_name}: {field_type}",
-            )
+def add_arguments_for_dataclass(parser, cls, prefix="", default=None):
+    if default is None:
+        for field in dataclasses.fields(cls):
+            full_name = f"{prefix}.{field.name}" if prefix else field.name
+            field_type = field.type
+            default = field.default
+            if dataclasses.is_dataclass(field_type):
+                add_arguments_for_dataclass(
+                    parser, field_type, prefix=full_name, default=default
+                )
+            else:
+                parser.add_argument(
+                    f"--{full_name}",
+                    type=field_type,
+                    default=default,
+                    help=f"{full_name}: {field_type}",
+                )
+    else:
+        for field_name, field_type in default.__dataclass_fields__.items():
+            full_name = f"{prefix}.{field_name}" if prefix else field_name
+            if dataclasses.is_dataclass(field_type):
+                add_arguments_for_dataclass(
+                    parser,
+                    field_type,
+                    prefix=full_name,
+                    default=getattr(default, field_name),
+                )
+            else:
+                parser.add_argument(
+                    f"--{full_name}",
+                    type=field_type.type,
+                    default=getattr(default, field_name),
+                    help=f"{full_name}: {field_type}",
+                )
 
 
 def nested_dict(input_dict):
@@ -67,11 +73,15 @@ def nested_dict(input_dict):
     return result
 
 
-def construct_dataclass(cls: Type, data: Dict[str, Any]):
+def construct_dataclass(cls: Type, data: Dict[str, Any], default=None):
+    if default is not None:
+        data = {**default.__dict__, **data}
     init_kwargs = {}
     for field in dataclasses.fields(cls):
         if isinstance(data.get(field.name), dict):
-            init_kwargs[field.name] = construct_dataclass(field.type, data[field.name])
+            init_kwargs[field.name] = construct_dataclass(
+                field.type, data[field.name], default=field.default
+            )
         else:
             init_kwargs[field.name] = data.get(field.name, field.default)
     return cls(**init_kwargs)
@@ -83,7 +93,9 @@ def construct_function_arguments(func, data: Dict[str, Any]):
     for param_name, param in sig.parameters.items():
         param_type = param.annotation
         if dataclasses.is_dataclass(param_type):
-            init_kwargs[param_name] = construct_dataclass(param_type, data[param_name])
+            init_kwargs[param_name] = construct_dataclass(
+                param_type, data.get(param_name, {}), default=param.default
+            )
         else:
             init_kwargs[param_name] = data.get(param_name, param.default)
     return init_kwargs
