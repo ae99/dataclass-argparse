@@ -10,19 +10,32 @@ class CheckpointConfig:
     upload: int = 2
 
 
-def train(param_1: int = 1, param_2: str = "default", param_3: CheckpointConfig = CheckpointConfig()):
-    print(f"Training with param_1: {param_1.__repr__()}, param_2: {param_2.__repr__()}, param_3: {param_3}")
+def train(
+    param_1: int = 1,
+    param_2: str = "default",
+    param_3: CheckpointConfig = CheckpointConfig(),
+):
+    print(
+        f"Training with param_1: {param_1.__repr__()}, param_2: {param_2.__repr__()}, param_3: {param_3}"
+    )
 
 
 def add_arguments_for_function(parser, func):
     sig = inspect.signature(func)
     for param_name, param in sig.parameters.items():
         param_type = param.annotation
-        default = param.default if param.default is not inspect.Parameter.empty else None
+        default = (
+            param.default if param.default is not inspect.Parameter.empty else None
+        )
         if dataclasses.is_dataclass(param_type):
             add_arguments_for_dataclass(parser, param_type, prefix=param_name)
         else:
-            parser.add_argument(f"--{param_name}", type=param_type, default=default, help=f"{param_name}: {param_type}")
+            parser.add_argument(
+                f"--{param_name}",
+                type=param_type,
+                default=default,
+                help=f"{param_name}: {param_type}",
+            )
 
 
 def add_arguments_for_dataclass(parser, cls, prefix=""):
@@ -33,17 +46,12 @@ def add_arguments_for_dataclass(parser, cls, prefix=""):
         if dataclasses.is_dataclass(field_type):
             add_arguments_for_dataclass(parser, field_type, prefix=full_name)
         else:
-            parser.add_argument(f"--{full_name}", type=field_type, default=default, help=f"{full_name}: {field_type}")
-
-
-def construct_dataclass(cls: Type, data: Dict[str, Any]):
-    init_kwargs = {}
-    for field in dataclasses.fields(cls):
-        if isinstance(data.get(field.name), dict):
-            init_kwargs[field.name] = construct_dataclass(field.type, data[field.name])
-        else:
-            init_kwargs[field.name] = data.get(field.name, field.default)
-    return cls(**init_kwargs)
+            parser.add_argument(
+                f"--{full_name}",
+                type=field_type,
+                default=default,
+                help=f"{full_name}: {field_type}",
+            )
 
 
 def nested_dict(input_dict):
@@ -59,16 +67,48 @@ def nested_dict(input_dict):
     return result
 
 
+def construct_dataclass(cls: Type, data: Dict[str, Any]):
+    init_kwargs = {}
+    for field in dataclasses.fields(cls):
+        if isinstance(data.get(field.name), dict):
+            init_kwargs[field.name] = construct_dataclass(field.type, data[field.name])
+        else:
+            init_kwargs[field.name] = data.get(field.name, field.default)
+    return cls(**init_kwargs)
+
+
+def construct_function_arguments(func, data: Dict[str, Any]):
+    sig = inspect.signature(func)
+    init_kwargs = {}
+    for param_name, param in sig.parameters.items():
+        param_type = param.annotation
+        if dataclasses.is_dataclass(param_type):
+            init_kwargs[param_name] = construct_dataclass(param_type, data[param_name])
+        else:
+            init_kwargs[param_name] = data.get(param_name, param.default)
+    return init_kwargs
+
+
+class FunctionArgumentParser(argparse.ArgumentParser):
+    def __init__(self, func, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.func = func
+        add_arguments_for_function(self, func)
+
+    def parse_args(self, *args, **kwargs):
+        args = super().parse_args(*args, **kwargs)
+        args_dict = {k: v for k, v in vars(args).items() if v is not None}
+        nested_args = nested_dict(args_dict)
+        return construct_function_arguments(self.func, nested_args)
+
+
 def main():
     parser = argparse.ArgumentParser(description="CLI for train function")
     add_arguments_for_function(parser, train)
     args = parser.parse_args()
 
-    # Convert argparse Namespace to dictionary
-    args_dict = vars(args)
-    args_dict = {k: v for k, v in args_dict.items() if v is not None}
-
-    # Use the nested_dict function to create a nested structure
+    # Convert argparse Namespace to dictionary, removing None values
+    args_dict = {k: v for k, v in vars(args).items() if v is not None}
     nested_args = nested_dict(args_dict)
 
     # Get the signature of the train function
@@ -80,7 +120,9 @@ def main():
         if dataclasses.is_dataclass(param_type):
             # Construct data class from nested_args if available
             if param_name in nested_args:
-                train_args[param_name] = construct_dataclass(param_type, nested_args[param_name])
+                train_args[param_name] = construct_dataclass(
+                    param_type, nested_args[param_name]
+                )
             else:
                 # Use default value if not provided in nested_args
                 train_args[param_name] = param.default
