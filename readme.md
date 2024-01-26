@@ -14,7 +14,7 @@ And combining the two, I hate having boilerplate like `config.param` all over my
 
 ## Installation
 
-None yet - just copy and paste dataclass_argparse.py into your project.
+Pull this repo, and run `pip install .`
 
 ## Usage
 
