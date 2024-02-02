@@ -126,3 +126,13 @@ def test_function_arg_parser():
     parser = FunctionArgumentParser(my_func)
     args = parser.parse_args(["--a", "1", "--b.x", "2", "--c", "3"])
     assert args == {"a": 1, "b": Nested(x=2), "c": "3"}
+
+
+def my_func_2(dotargs: None, a: int, b: Nested = Nested(x=2), c: str = "c"):
+    pass
+
+
+def test_function_arg_parser_dotargs():
+    parser = FunctionArgumentParser(my_func_2, dotargs=True)
+    args = parser.parse_args(["--a", "1", "--b.x", "2", "--c", "3"])
+    assert args["dotargs"] == {"a": 1, "b.x": 2, "c": "3"}

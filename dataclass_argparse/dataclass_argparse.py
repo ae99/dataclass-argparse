@@ -19,6 +19,8 @@ def add_argument(parser, name, type, default=None, help=None):
 def add_arguments_for_function(parser, func):
     sig = inspect.signature(func)
     for param_name, param in sig.parameters.items():
+        if param_name == "dotargs":  # reserved for dotargs
+            continue
         param_type = param.annotation
         default = (
             param.default if param.default is not inspect.Parameter.empty else None
@@ -117,13 +119,19 @@ def construct_function_arguments(func, data: Dict[str, Any]):
 
 
 class FunctionArgumentParser(argparse.ArgumentParser):
-    def __init__(self, func, *args, **kwargs):
+    def __init__(self, func, dotargs=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.func = func
+        self.dotargs = dotargs
         add_arguments_for_function(self, func)
 
     def parse_args(self, *args, **kwargs):
         args = super().parse_args(*args, **kwargs)
         args_dict = {k: v for k, v in vars(args).items() if v is not None}
         nested_args = nested_dict(args_dict)
+
+        # place a `dotargs` param in your function if you want access to raw dot separated tree dict
+        if self.dotargs:
+            nested_args["dotargs"] = args_dict
+
         return construct_function_arguments(self.func, nested_args)
